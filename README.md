@@ -11,7 +11,7 @@ Implements ArcGIS Pro-equivalent spatial analysis tools (Hot Spot Analysis, Kern
 
 ## Live Demo
 
-**[View the Interactive Map](https://garridolecca.github.io/gpu-spatial-analytics/)**
+**[View the Interactive Map](https://garridolecca.github.io/Nvidia_esri-gpu-spatial-analytics/)**
 
 ## What This Project Does
 
