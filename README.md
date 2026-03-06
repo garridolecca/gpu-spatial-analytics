@@ -9,7 +9,7 @@ Interactive spatial analytics platform combining **NVIDIA GPU acceleration** (Cu
 
 ## Live Demo
 
-**[View the Interactive Map](https://PLACEHOLDER)**
+**[View the Interactive Map](https://garridolecca.github.io/gpu-spatial-analytics/)**
 
 ## What This Project Does
 
