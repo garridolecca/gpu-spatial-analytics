@@ -5,12 +5,35 @@
   "avg_tip": 3.37,
   "avg_distance_miles": 3.23,
   "avg_duration_min": 15.7,
+  "median_fare": 12.8,
   "busiest_zone": "Midtown Center",
   "busiest_zone_trips": 139757,
   "total_zones": 263,
   "dbscan_clusters": 53,
   "h3_hexagons": 239,
+  "hot_spots": 59,
+  "cold_spots": 70,
+  "morans_I": {
+    "morans_I": 0.522223,
+    "expected_I": -0.003817,
+    "z_score": 23.38,
+    "p_value": 0.0,
+    "interpretation": "Clustered",
+    "method": "GPU (CuPy)"
+  },
   "gpu_accelerated": true,
   "data_period": "January 2024",
-  "data_source": "NYC Taxi & Limousine Commission"
+  "data_source": "NYC Taxi & Limousine Commission",
+  "analyses": [
+    "Zone Aggregation (Pickup/Dropoff/Revenue/Tip)",
+    "GPU Getis-Ord Gi* Hot Spot Analysis",
+    "GPU Moran's I Spatial Autocorrelation",
+    "GPU Kernel Density Estimation",
+    "GPU IDW Interpolation (Fare Surface)",
+    "GPU Pairwise Distance Matrix",
+    "H3 Hexagonal Aggregation",
+    "DBSCAN Spatial Clustering",
+    "Origin-Destination Flow Analysis",
+    "Temporal Pattern Analysis"
+  ]
 }

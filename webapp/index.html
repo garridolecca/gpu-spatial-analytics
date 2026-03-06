@@ -4,554 +4,698 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NYC Taxi GPU-Accelerated Spatial Analytics</title>
-  <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/dark/main.css" />
-  <script src="https://js.arcgis.com/4.30/"></script>
+  <script type="module" src="https://js.arcgis.com/5.0/"></script>
   <style>
+    :root {
+      --bg-primary: #0a0e17;
+      --bg-secondary: #111827;
+      --bg-tertiary: #1a2332;
+      --border: #1e293b;
+      --text-primary: #e5e7eb;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --accent: #00d4ff;
+      --accent-dim: #00d4ff44;
+      --nvidia: #76b900;
+      --hot: #ff4444;
+      --cold: #4488ff;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a1a; color: #e0e0e0; }
+    html, body { height: 100%; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg-primary); color: var(--text-primary); }
 
+    /* ── Header ─────────────────────────────────────────────── */
     #header {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-      padding: 20px 32px;
-      display: flex; align-items: center; justify-content: space-between;
-      border-bottom: 2px solid #00d4ff33;
+      height: 64px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px; background: linear-gradient(135deg, #0f1729 0%, #162033 50%, #0f3460 100%);
+      border-bottom: 1px solid var(--border);
     }
-    #header h1 { font-size: 22px; font-weight: 600; color: #fff; }
-    #header h1 span { color: #00d4ff; }
-    #header .subtitle { font-size: 13px; color: #8899aa; margin-top: 2px; }
-    .badge { background: #76b900; color: #000; padding: 3px 10px; border-radius: 12px;
-      font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+    #header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+    #header h1 span { color: var(--accent); }
+    .subtitle { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+    .badges { display: flex; gap: 8px; }
+    .badge {
+      padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .badge-nvidia { background: var(--nvidia); color: #000; }
+    .badge-arcgis { background: #0079c1; color: #fff; }
+    .badge-v5 { background: var(--accent); color: #000; }
 
-    #main { display: flex; height: calc(100vh - 72px); }
+    /* ── Layout ──────────────────────────────────────────────── */
+    #app { display: flex; height: calc(100vh - 64px); }
 
+    /* ── Sidebar ─────────────────────────────────────────────── */
     #sidebar {
-      width: 320px; min-width: 320px; background: #111827;
-      overflow-y: auto; border-right: 1px solid #1f2937;
-      display: flex; flex-direction: column;
+      width: 310px; min-width: 310px; background: var(--bg-secondary);
+      border-right: 1px solid var(--border); display: flex; flex-direction: column;
+      overflow-y: auto;
     }
-
-    .layer-btn {
-      padding: 14px 20px; cursor: pointer; border: none; background: none;
-      text-align: left; color: #9ca3af; font-size: 13px; transition: all 0.2s;
-      border-left: 3px solid transparent; display: flex; align-items: center; gap: 10px;
-    }
-    .layer-btn:hover { background: #1f2937; color: #e5e7eb; }
-    .layer-btn.active { background: #1e293b; color: #00d4ff; border-left-color: #00d4ff; }
-    .layer-btn .icon { font-size: 18px; width: 24px; text-align: center; }
-    .layer-btn .label { font-weight: 600; display: block; }
-    .layer-btn .desc { font-size: 11px; color: #6b7280; margin-top: 2px; display: block; }
-
-    #stats-panel {
-      padding: 16px 20px; border-top: 1px solid #1f2937; margin-top: auto;
-    }
-    #stats-panel h3 { font-size: 12px; color: #6b7280; text-transform: uppercase;
-      letter-spacing: 1px; margin-bottom: 12px; }
-    .stat-row { display: flex; justify-content: space-between; padding: 6px 0;
-      font-size: 13px; border-bottom: 1px solid #1f293722; }
-    .stat-row .val { color: #00d4ff; font-weight: 600; }
-
-    #map-container { flex: 1; position: relative; }
-    #viewDiv { width: 100%; height: 100%; }
-
-    #info-panel {
-      position: absolute; top: 16px; right: 16px; background: #111827ee;
-      border: 1px solid #1f2937; border-radius: 12px; padding: 20px;
-      max-width: 360px; backdrop-filter: blur(12px); z-index: 10;
-    }
-    #info-panel h2 { font-size: 16px; color: #fff; margin-bottom: 8px; }
-    #info-panel p { font-size: 12px; color: #9ca3af; line-height: 1.6; }
-    .legend { margin-top: 12px; }
-    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px;
-      margin: 4px 0; color: #9ca3af; }
-    .legend-swatch { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; }
-
-    #temporal-panel {
-      position: absolute; bottom: 16px; left: 16px; right: 16px;
-      background: #111827ee; border: 1px solid #1f2937; border-radius: 12px;
-      padding: 16px; backdrop-filter: blur(12px); z-index: 10; display: none;
-    }
-    #temporal-panel h3 { font-size: 13px; color: #fff; margin-bottom: 8px; }
-    #heatmap-grid {
-      display: grid; grid-template-columns: 40px repeat(24, 1fr);
-      gap: 1px; font-size: 9px;
-    }
-    .hm-label { color: #6b7280; display: flex; align-items: center; justify-content: center; }
-    .hm-cell { height: 18px; border-radius: 2px; cursor: pointer; position: relative; }
-    .hm-cell:hover { outline: 1px solid #fff; z-index: 1; }
-    .hm-cell[title]:hover::after {
-      content: attr(title); position: absolute; bottom: 100%; left: 50%;
-      transform: translateX(-50%); background: #1f2937; color: #fff;
-      padding: 4px 8px; border-radius: 4px; font-size: 10px; white-space: nowrap;
-      pointer-events: none;
-    }
-
     .section-label {
-      padding: 10px 20px; font-size: 10px; color: #4b5563; text-transform: uppercase;
-      letter-spacing: 1.5px; font-weight: 700;
+      padding: 12px 20px 6px; font-size: 9px; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;
     }
+    .layer-btn {
+      padding: 12px 18px; cursor: pointer; border: none; background: none;
+      text-align: left; color: var(--text-secondary); font-size: 13px;
+      transition: all 0.15s; border-left: 3px solid transparent;
+      display: flex; align-items: center; gap: 10px; width: 100%;
+    }
+    .layer-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+    .layer-btn.active { background: var(--bg-tertiary); color: var(--accent); border-left-color: var(--accent); }
+    .layer-btn .icon { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+    .layer-btn .label { font-weight: 600; display: block; font-size: 13px; }
+    .layer-btn .desc { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+    .layer-btn .gpu-tag {
+      font-size: 8px; background: var(--nvidia); color: #000; padding: 1px 5px;
+      border-radius: 6px; font-weight: 700; margin-left: auto; flex-shrink: 0;
+    }
+
+    /* ── Stats Panel ─────────────────────────────────────────── */
+    #stats-panel { padding: 14px 18px; border-top: 1px solid var(--border); margin-top: auto; }
+    #stats-panel h3 {
+      font-size: 9px; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 10px;
+    }
+    .stat-row {
+      display: flex; justify-content: space-between; padding: 4px 0;
+      font-size: 12px; border-bottom: 1px solid #1f293722;
+    }
+    .stat-row .val { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* ── Map Area ────────────────────────────────────────────── */
+    #map-area { flex: 1; position: relative; }
+    arcgis-map { width: 100%; height: 100%; }
+
+    /* ── Info Panel (top-right) ──────────────────────────────── */
+    #info-panel {
+      position: absolute; top: 14px; right: 14px;
+      background: var(--bg-secondary)ee; border: 1px solid var(--border);
+      border-radius: 10px; padding: 18px; max-width: 350px;
+      backdrop-filter: blur(16px); z-index: 10;
+    }
+    #info-panel h2 { font-size: 15px; color: #fff; margin-bottom: 4px; }
+    #info-panel .method-tag {
+      display: inline-block; font-size: 9px; background: var(--nvidia);
+      color: #000; padding: 2px 7px; border-radius: 8px; font-weight: 700;
+      margin-bottom: 8px;
+    }
+    #info-panel .method-tag.arcgis { background: #0079c1; color: #fff; }
+    #info-panel p { font-size: 11.5px; color: var(--text-secondary); line-height: 1.6; }
+    .legend { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; }
+    .legend-item {
+      display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-secondary);
+    }
+    .legend-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+
+    /* ── Moran's I panel ─────────────────────────────────────── */
+    #moran-panel {
+      position: absolute; bottom: 14px; right: 14px;
+      background: var(--bg-secondary)ee; border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px; width: 280px;
+      backdrop-filter: blur(16px); z-index: 10; display: none;
+    }
+    #moran-panel h3 { font-size: 13px; color: #fff; margin-bottom: 8px; }
+    .moran-stat { font-size: 12px; padding: 3px 0; color: var(--text-secondary); }
+    .moran-stat span { color: var(--accent); font-weight: 600; }
+
+    /* ── Temporal panel ──────────────────────────────────────── */
+    #temporal-panel {
+      position: absolute; bottom: 14px; left: 14px; right: 14px;
+      background: var(--bg-secondary)ee; border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px;
+      backdrop-filter: blur(16px); z-index: 10; display: none;
+    }
+    #temporal-panel h3 { font-size: 13px; color: #fff; margin-bottom: 10px; }
+    #heatmap-grid {
+      display: grid; grid-template-columns: 36px repeat(24, 1fr);
+      gap: 1px; font-size: 8px;
+    }
+    .hm-label { color: var(--text-muted); display: flex; align-items: center; justify-content: center; }
+    .hm-cell {
+      height: 16px; border-radius: 2px; cursor: pointer; transition: outline 0.1s;
+    }
+    .hm-cell:hover { outline: 1px solid #fff; z-index: 1; position: relative; }
+
+    /* ── Tooltip ──────────────────────────────────────────────── */
+    #tooltip {
+      position: fixed; background: var(--bg-tertiary); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 10px; font-size: 11px; color: var(--text-primary);
+      pointer-events: none; z-index: 1000; display: none; white-space: nowrap;
+    }
+
+    /* ArcGIS component overrides */
+    arcgis-map { --arcgis-color-brand: var(--accent); }
   </style>
 </head>
 <body>
-  <div id="header">
-    <div>
-      <h1><span>GPU</span> Spatial Analytics &mdash; NYC Taxi</h1>
-      <div class="subtitle">2.8M trips | January 2024 | CuPy + ArcGIS JS SDK</div>
+
+<div id="header">
+  <div>
+    <h1><span>GPU</span> Spatial Analytics — NYC Taxi</h1>
+    <div class="subtitle">2.8M trips | January 2024 | CuPy + ArcGIS Maps SDK 5.0</div>
+  </div>
+  <div class="badges">
+    <span class="badge badge-nvidia">NVIDIA RTX</span>
+    <span class="badge badge-arcgis">ArcGIS</span>
+    <span class="badge badge-v5">SDK 5.0</span>
+  </div>
+</div>
+
+<div id="app">
+  <div id="sidebar">
+    <div class="section-label">ArcGIS Spatial Analysis</div>
+
+    <button class="layer-btn active" data-layer="hotspots">
+      <span class="icon">&#9733;</span>
+      <div><span class="label">Hot Spot Analysis</span>
+      <span class="desc">Getis-Ord Gi* (ArcGIS equivalent)</span></div>
+      <span class="gpu-tag">GPU</span>
+    </button>
+
+    <button class="layer-btn" data-layer="kde">
+      <span class="icon">&#9673;</span>
+      <div><span class="label">Kernel Density</span>
+      <span class="desc">Gaussian KDE surface</span></div>
+      <span class="gpu-tag">GPU</span>
+    </button>
+
+    <button class="layer-btn" data-layer="idw">
+      <span class="icon">&#9686;</span>
+      <div><span class="label">IDW Interpolation</span>
+      <span class="desc">Fare surface (inverse distance)</span></div>
+      <span class="gpu-tag">GPU</span>
+    </button>
+
+    <button class="layer-btn" data-layer="moran">
+      <span class="icon">&#8764;</span>
+      <div><span class="label">Spatial Autocorrelation</span>
+      <span class="desc">Global Moran's I</span></div>
+      <span class="gpu-tag">GPU</span>
+    </button>
+
+    <div class="section-label">Spatial Aggregation</div>
+
+    <button class="layer-btn" data-layer="pickups">
+      <span class="icon">&#9650;</span>
+      <div><span class="label">Pickup Volume</span>
+      <span class="desc">Trip count by zone</span></div>
+    </button>
+
+    <button class="layer-btn" data-layer="dropoffs">
+      <span class="icon">&#9660;</span>
+      <div><span class="label">Dropoff Volume</span>
+      <span class="desc">Dropoff density by zone</span></div>
+    </button>
+
+    <button class="layer-btn" data-layer="h3">
+      <span class="icon">&#11042;</span>
+      <div><span class="label">H3 Hexagons</span>
+      <span class="desc">Uber H3 spatial binning</span></div>
+    </button>
+
+    <button class="layer-btn" data-layer="clusters">
+      <span class="icon">&#9679;</span>
+      <div><span class="label">DBSCAN Clusters</span>
+      <span class="desc">Density-based clustering</span></div>
+    </button>
+
+    <div class="section-label">Flow & Temporal</div>
+
+    <button class="layer-btn" data-layer="flows">
+      <span class="icon">&#8594;</span>
+      <div><span class="label">OD Flows</span>
+      <span class="desc">Top 200 routes</span></div>
+    </button>
+
+    <button class="layer-btn" data-layer="temporal">
+      <span class="icon">&#9201;</span>
+      <div><span class="label">Temporal Patterns</span>
+      <span class="desc">Hour x day-of-week heatmap</span></div>
+    </button>
+
+    <div class="section-label">Revenue</div>
+
+    <button class="layer-btn" data-layer="revenue">
+      <span class="icon">$</span>
+      <div><span class="label">Revenue by Zone</span>
+      <span class="desc">Total revenue choropleth</span></div>
+    </button>
+
+    <button class="layer-btn" data-layer="tips">
+      <span class="icon">%</span>
+      <div><span class="label">Tip Patterns</span>
+      <span class="desc">Average tip by zone</span></div>
+    </button>
+
+    <div id="stats-panel">
+      <h3>Dataset Summary</h3>
+      <div id="stats-content"></div>
     </div>
-    <span class="badge">NVIDIA RTX ACCELERATED</span>
   </div>
 
-  <div id="main">
-    <div id="sidebar">
-      <div class="section-label">Analytics Layers</div>
-      <button class="layer-btn active" data-layer="pickups">
-        <span class="icon">&#9650;</span>
-        <div>
-          <span class="label">Pickup Hotspots</span>
-          <span class="desc">Trip count choropleth by zone</span>
-        </div>
-      </button>
-      <button class="layer-btn" data-layer="dropoffs">
-        <span class="icon">&#9660;</span>
-        <div>
-          <span class="label">Dropoff Density</span>
-          <span class="desc">Dropoff volume by zone</span>
-        </div>
-      </button>
-      <button class="layer-btn" data-layer="kde">
-        <span class="icon">&#9673;</span>
-        <div>
-          <span class="label">KDE Heatmap</span>
-          <span class="desc">GPU-accelerated kernel density</span>
-        </div>
-      </button>
-      <button class="layer-btn" data-layer="h3">
-        <span class="icon">&#11042;</span>
-        <div>
-          <span class="label">H3 Hexagons</span>
-          <span class="desc">Uber H3 hexagonal aggregation</span>
-        </div>
-      </button>
-      <button class="layer-btn" data-layer="clusters">
-        <span class="icon">&#9679;</span>
-        <div>
-          <span class="label">DBSCAN Clusters</span>
-          <span class="desc">Spatial clustering of hotspots</span>
-        </div>
-      </button>
-      <button class="layer-btn" data-layer="flows">
-        <span class="icon">&#8594;</span>
-        <div>
-          <span class="label">OD Flows</span>
-          <span class="desc">Top 200 origin-destination routes</span>
-        </div>
-      </button>
-      <button class="layer-btn" data-layer="temporal">
-        <span class="icon">&#9201;</span>
-        <div>
-          <span class="label">Temporal Patterns</span>
-          <span class="desc">Hour-of-week trip heatmap</span>
-        </div>
-      </button>
+  <div id="map-area">
+    <arcgis-map basemap="dark-gray-vector" center="-73.98,40.75" zoom="11">
+      <arcgis-zoom position="top-left"></arcgis-zoom>
+      <arcgis-basemap-toggle position="bottom-left" next-basemap="satellite"></arcgis-basemap-toggle>
+    </arcgis-map>
 
-      <div class="section-label" style="margin-top: 16px;">Revenue Layers</div>
-      <button class="layer-btn" data-layer="revenue">
-        <span class="icon">$</span>
-        <div>
-          <span class="label">Revenue by Zone</span>
-          <span class="desc">Total revenue choropleth</span>
-        </div>
-      </button>
-      <button class="layer-btn" data-layer="tips">
-        <span class="icon">%</span>
-        <div>
-          <span class="label">Tip Analysis</span>
-          <span class="desc">Average tip by zone</span>
-        </div>
-      </button>
-
-      <div id="stats-panel">
-        <h3>Dataset Summary</h3>
-        <div id="stats-content"></div>
-      </div>
+    <div id="info-panel">
+      <h2 id="info-title">Hot Spot Analysis</h2>
+      <span class="method-tag" id="info-method">GPU GETIS-ORD Gi*</span>
+      <p id="info-desc"></p>
+      <div class="legend" id="info-legend"></div>
     </div>
 
-    <div id="map-container">
-      <div id="viewDiv"></div>
-      <div id="info-panel">
-        <h2 id="info-title">Pickup Hotspots</h2>
-        <p id="info-desc">Choropleth map showing taxi pickup density across 263 NYC taxi zones.
-          Darker colors indicate higher trip volumes. Midtown Center leads with 139,757 pickups.</p>
-        <div class="legend" id="info-legend"></div>
-      </div>
-      <div id="temporal-panel">
-        <h3>Trip Volume by Hour &amp; Day of Week</h3>
-        <div id="heatmap-grid"></div>
-      </div>
+    <div id="moran-panel">
+      <h3>Global Spatial Autocorrelation</h3>
+      <div id="moran-stats"></div>
+    </div>
+
+    <div id="temporal-panel">
+      <h3>Trip Volume by Hour and Day of Week</h3>
+      <div id="heatmap-grid"></div>
     </div>
   </div>
+</div>
 
-  <script>
-    require([
-      "esri/Map",
-      "esri/views/MapView",
-      "esri/layers/GeoJSONLayer",
-      "esri/renderers/SimpleRenderer",
-      "esri/renderers/ClassBreaksRenderer",
-      "esri/renderers/UniqueValueRenderer",
-      "esri/symbols/SimpleFillSymbol",
-      "esri/symbols/SimpleMarkerSymbol",
-      "esri/symbols/SimpleLineSymbol",
-      "esri/widgets/Legend",
-      "esri/widgets/BasemapToggle",
-      "esri/PopupTemplate",
-      "esri/Color"
-    ], function(Map, MapView, GeoJSONLayer, SimpleRenderer, ClassBreaksRenderer,
-                UniqueValueRenderer, SimpleFillSymbol, SimpleMarkerSymbol,
-                SimpleLineSymbol, Legend, BasemapToggle, PopupTemplate, Color) {
+<div id="tooltip"></div>
 
-      const DATA_BASE = "data/";
+<script type="module">
+  const GeoJSONLayer = await $arcgis.import("@arcgis/core/layers/GeoJSONLayer.js");
 
-      const map = new Map({ basemap: "dark-gray-vector" });
-      const view = new MapView({
-        container: "viewDiv",
-        map: map,
-        center: [-73.98, 40.75],
-        zoom: 11,
-        ui: { components: ["zoom", "compass"] },
-        popup: { dockEnabled: true, dockOptions: { position: "bottom-right", breakpoint: false } }
+  const DATA = "data/";
+  const mapEl = document.querySelector("arcgis-map");
+  await mapEl.viewOnReady();
+  const view = mapEl.view;
+
+  // ── Layer info metadata ─────────────────────────────────────────────────
+
+  const layerMeta = {
+    hotspots: {
+      title: "Getis-Ord Gi* Hot Spot Analysis",
+      method: "GPU GETIS-ORD Gi*",
+      methodClass: "",
+      desc: "GPU-accelerated implementation of the Getis-Ord Gi* statistic, equivalent to ArcGIS Pro's Hot Spot Analysis tool. Identifies statistically significant spatial clusters of high values (hot spots) and low values (cold spots) in taxi trip density. Z-scores computed via CuPy GPU matrix operations on the inverse-distance spatial weights matrix. 59 hot spots and 70 cold spots identified at 90-99% confidence.",
+      legend: [
+        ["#d32f2f","Hot Spot 99%"],["#ef5350","Hot Spot 95%"],["#ef9a9a","Hot Spot 90%"],
+        ["#e0e0e0","Not Significant"],
+        ["#90caf9","Cold Spot 90%"],["#42a5f5","Cold Spot 95%"],["#1565c0","Cold Spot 99%"]
+      ]
+    },
+    kde: {
+      title: "Kernel Density Estimation",
+      method: "GPU KDE",
+      methodClass: "",
+      desc: "GPU-accelerated Gaussian Kernel Density Estimation over a 200x200 grid, equivalent to ArcGIS Pro's Kernel Density tool. Bandwidth of ~800m applied to trip-weighted zone centroids. CuPy parallelizes the pairwise distance evaluation across 40,000 grid cells against thousands of sample points.",
+      legend: [["#ff0000","Extreme"],["#ff3c00","Very High"],["#ff8c00","High"],["#ffc800","Medium"],["#ffff44","Low"]]
+    },
+    idw: {
+      title: "IDW Interpolation — Fare Surface",
+      method: "GPU IDW",
+      methodClass: "",
+      desc: "GPU-accelerated Inverse Distance Weighted interpolation, equivalent to ArcGIS Pro's IDW tool. Creates a continuous fare surface from zone-level average fares. Power parameter = 2. CuPy computes the full distance matrix between 10,000 grid points and all known sample locations in a single GPU operation.",
+      legend: [["#00897b","< $10"],["#ffb300","$10-20"],["#f57c00","$20-40"],["#e53935","$40-80"],["#b71c1c","$80+"]]
+    },
+    moran: {
+      title: "Spatial Autocorrelation — Moran's I",
+      method: "GPU MORAN'S I",
+      methodClass: "",
+      desc: "GPU-accelerated Global Moran's I statistic, equivalent to ArcGIS Pro's Spatial Autocorrelation tool. Measures whether trip density exhibits spatial clustering (positive I) or dispersion (negative I). Shows the pickup choropleth with the Moran's I statistics panel. The result (I=0.52, z=23.38) confirms strong spatial clustering.",
+      legend: [["#bbdefb","High volume"],["#64b5f6","Medium-high"],["#2196f3","Medium"],["#1565c0","Low-medium"],["#0d47a1","Low"]]
+    },
+    pickups: {
+      title: "Pickup Volume",
+      method: "ZONE AGGREGATION",
+      methodClass: "arcgis",
+      desc: "Choropleth of taxi pickup counts across 263 NYC taxi zones. Computed by aggregating 2.8M trip records by PULocationID. Midtown Center dominates with 139,757 pickups in January 2024.",
+      legend: [["#bbdefb","80K+"],["#64b5f6","40K-80K"],["#2196f3","15K-40K"],["#1565c0","5K-15K"],["#0d47a1","1K-5K"],["#0a1929","< 1K"]]
+    },
+    dropoffs: {
+      title: "Dropoff Density",
+      method: "ZONE AGGREGATION",
+      methodClass: "arcgis",
+      desc: "Dropoff volume reveals asymmetric trip patterns. Airports and outer boroughs show higher dropoff-to-pickup ratios, indicating one-way demand. Compare with pickups to identify supply-demand imbalance.",
+      legend: [["#c8e6c9","80K+"],["#a5d6a7","40K-80K"],["#66bb6a","15K-40K"],["#388e3c","5K-15K"],["#1b5e20","1K-5K"],["#0a1f0a","< 1K"]]
+    },
+    h3: {
+      title: "H3 Hexagonal Aggregation",
+      method: "UBER H3",
+      methodClass: "arcgis",
+      desc: "Uber's H3 hierarchical hexagonal grid at resolution 8 (~460m edge length). 239 hexagonal cells provide uniform-area spatial binning, superior to irregular taxi zone boundaries for density comparison.",
+      legend: [["#fbe9e7","150K+"],["#ffab91","80K-150K"],["#ff7043","40K-80K"],["#e64a19","15K-40K"],["#bf360c","5K-15K"],["#1a0a00","< 5K"]]
+    },
+    clusters: {
+      title: "DBSCAN Spatial Clustering",
+      method: "SCIKIT-LEARN",
+      methodClass: "arcgis",
+      desc: "Density-Based Spatial Clustering (eps ~500m, min_samples=3) with log-weighted trip counts. Found 53 clusters concentrated in Manhattan. Gray noise points don't belong to any dense cluster.",
+      legend: [["#ff4444","Cluster 0"],["#44ff44","Cluster 1"],["#4444ff","Cluster 2"],["#ffff44","Cluster 3"],["#666","Noise"]]
+    },
+    flows: {
+      title: "Origin-Destination Flows",
+      method: "OD MATRIX",
+      methodClass: "arcgis",
+      desc: "Top 200 busiest routes between zone pairs. Line thickness encodes trip volume. Reveals dominant commute corridors within Manhattan and airport connections (JFK, LaGuardia, Newark).",
+      legend: [["#64ffff","50K+ trips"],["#00dcffcc","20K-50K"],["#00c8ff88","10K-20K"],["#00c8ff44","5K-10K"],["#00c8ff22","< 5K"]]
+    },
+    temporal: {
+      title: "Temporal Trip Patterns",
+      method: "TIME SERIES",
+      methodClass: "arcgis",
+      desc: "Heatmap of trip volume across 168 hour-of-week combinations. Reveals weekday rush hour peaks (8-9 AM, 5-7 PM), weekend nightlife surges (11 PM - 2 AM), and early-morning quiet periods.",
+      legend: []
+    },
+    revenue: {
+      title: "Revenue by Zone",
+      method: "ZONE AGGREGATION",
+      methodClass: "arcgis",
+      desc: "Total fare revenue per zone in January 2024. Manhattan zones dominate with multi-million dollar revenues. JFK Airport is a notable outlier in Queens due to flat-rate fares.",
+      legend: [["#fff9c4","$3M+"],["#fff176","$1.5M-3M"],["#ffee58","$500K-1.5M"],["#fbc02d","$200K-500K"],["#f57f17","$50K-200K"],["#1a1500","< $50K"]]
+    },
+    tips: {
+      title: "Tip Analysis",
+      method: "ZONE AGGREGATION",
+      methodClass: "arcgis",
+      desc: "Average tip amount by pickup zone. Higher tips correlate with longer-distance trips (airport zones). Manhattan's dense short-trip zones show moderate tips (~$2-3).",
+      legend: [["#e1bee7","$5+"],["#ce93d8","$4-5"],["#ab47bc","$3-4"],["#7b1fa2","$2-3"],["#4a148c","$1-2"],["#1a0033","< $1"]]
+    }
+  };
+
+  // ── Renderer helpers ──────────────────────────────────────────────────
+
+  function fillBreaks(field, colors, ranges, labels) {
+    return {
+      type: "class-breaks", field,
+      classBreakInfos: ranges.map((r, i) => ({
+        minValue: r[0], maxValue: r[1],
+        symbol: { type: "simple-fill", color: colors[i], outline: { color: [255,255,255,30], width: 0.5 } },
+        label: labels[i]
+      }))
+    };
+  }
+
+  function popup(title, fields) {
+    return {
+      title,
+      content: fields.map(([label, field, fmt]) => {
+        const prefix = fmt === "$" ? "$" : "";
+        const suffix = fmt === "mi" ? " mi" : fmt === "min" ? " min" : "";
+        return `<b>${label}:</b> ${prefix}{${field}}${suffix}`;
+      }).join("<br>")
+    };
+  }
+
+  // ── Layer definitions (ArcGIS Maps SDK 5.0) ───────────────────────────
+
+  const layers = {};
+
+  // Hot Spot Analysis (Getis-Ord Gi*)
+  layers.hotspots = new GeoJSONLayer({
+    url: DATA + "hotspot_analysis.geojson",
+    title: "Hot Spot Analysis", visible: true,
+    renderer: {
+      type: "unique-value", field: "hotspot_class",
+      uniqueValueInfos: [
+        { value: "Hot Spot (99%)", symbol: { type: "simple-fill", color: "#d32f2f", outline: { color: "#ffffff33", width: 0.5 } }, label: "Hot Spot 99%" },
+        { value: "Hot Spot (95%)", symbol: { type: "simple-fill", color: "#ef5350", outline: { color: "#ffffff33", width: 0.5 } }, label: "Hot Spot 95%" },
+        { value: "Hot Spot (90%)", symbol: { type: "simple-fill", color: "#ef9a9a", outline: { color: "#ffffff33", width: 0.5 } }, label: "Hot Spot 90%" },
+        { value: "Not Significant", symbol: { type: "simple-fill", color: "#e0e0e0", outline: { color: "#ffffff33", width: 0.5 } }, label: "Not Significant" },
+        { value: "Cold Spot (90%)", symbol: { type: "simple-fill", color: "#90caf9", outline: { color: "#ffffff33", width: 0.5 } }, label: "Cold Spot 90%" },
+        { value: "Cold Spot (95%)", symbol: { type: "simple-fill", color: "#42a5f5", outline: { color: "#ffffff33", width: 0.5 } }, label: "Cold Spot 95%" },
+        { value: "Cold Spot (99%)", symbol: { type: "simple-fill", color: "#1565c0", outline: { color: "#ffffff33", width: 0.5 } }, label: "Cold Spot 99%" },
+      ]
+    },
+    popupTemplate: {
+      title: "{zone}",
+      content: "<b>Borough:</b> {borough}<br><b>Classification:</b> {hotspot_class}<br>" +
+               "<b>Gi* Z-Score:</b> {gi_z_score}<br><b>P-Value:</b> {gi_p_value}<br>" +
+               "<b>Trip Count:</b> {trip_count}"
+    }
+  });
+
+  // KDE Heatmap
+  layers.kde = new GeoJSONLayer({
+    url: DATA + "kde_heatmap.geojson",
+    title: "KDE Heatmap", visible: false,
+    renderer: {
+      type: "class-breaks", field: "density",
+      classBreakInfos: [
+        { minValue: 0.03, maxValue: 0.15, symbol: { type: "simple-marker", color: [255,255,68,80], size: 5, outline: null }, label: "Low" },
+        { minValue: 0.15, maxValue: 0.3, symbol: { type: "simple-marker", color: [255,200,0,120], size: 6, outline: null }, label: "Medium" },
+        { minValue: 0.3, maxValue: 0.5, symbol: { type: "simple-marker", color: [255,140,0,170], size: 7, outline: null }, label: "High" },
+        { minValue: 0.5, maxValue: 0.75, symbol: { type: "simple-marker", color: [255,60,0,210], size: 9, outline: null }, label: "Very High" },
+        { minValue: 0.75, maxValue: 1.0, symbol: { type: "simple-marker", color: [255,0,0,245], size: 11, outline: null }, label: "Extreme" },
+      ]
+    },
+    popupTemplate: { title: "KDE Grid Point", content: "<b>Density:</b> {density}" }
+  });
+
+  // IDW Fare Surface
+  layers.idw = new GeoJSONLayer({
+    url: DATA + "idw_fare_surface.geojson",
+    title: "IDW Fare Surface", visible: false,
+    renderer: {
+      type: "class-breaks", field: "fare",
+      classBreakInfos: [
+        { minValue: 0, maxValue: 10, symbol: { type: "simple-marker", color: [0,137,123,140], size: 5, outline: null }, label: "< $10" },
+        { minValue: 10.01, maxValue: 20, symbol: { type: "simple-marker", color: [255,179,0,160], size: 5, outline: null }, label: "$10-20" },
+        { minValue: 20.01, maxValue: 40, symbol: { type: "simple-marker", color: [245,124,0,180], size: 5, outline: null }, label: "$20-40" },
+        { minValue: 40.01, maxValue: 80, symbol: { type: "simple-marker", color: [229,57,53,200], size: 6, outline: null }, label: "$40-80" },
+        { minValue: 80.01, maxValue: 200, symbol: { type: "simple-marker", color: [183,28,28,230], size: 7, outline: null }, label: "$80+" },
+      ]
+    },
+    popupTemplate: { title: "Fare Surface", content: "<b>Interpolated Fare:</b> ${fare}" }
+  });
+
+  // Moran's I (shows pickups choropleth + stats panel)
+  layers.moran = new GeoJSONLayer({
+    url: DATA + "zone_pickups.geojson",
+    title: "Moran's I", visible: false,
+    renderer: fillBreaks("trip_count",
+      ["#0a1929","#0d47a1","#1565c0","#2196f3","#64b5f6","#bbdefb"],
+      [[0,1000],[1001,5000],[5001,15000],[15001,40000],[40001,80000],[80001,200000]],
+      ["< 1K","1K-5K","5K-15K","15K-40K","40K-80K","80K+"]
+    ),
+    popupTemplate: popup("{zone}", [["Borough","borough"],["Trips","trip_count"],["Avg Fare","avg_fare","$"]])
+  });
+
+  // Pickups
+  layers.pickups = new GeoJSONLayer({
+    url: DATA + "zone_pickups.geojson",
+    title: "Pickups", visible: false,
+    renderer: fillBreaks("trip_count",
+      ["#0a1929","#0d47a1","#1565c0","#2196f3","#64b5f6","#bbdefb"],
+      [[0,1000],[1001,5000],[5001,15000],[15001,40000],[40001,80000],[80001,200000]],
+      ["< 1K","1K-5K","5K-15K","15K-40K","40K-80K","80K+"]
+    ),
+    popupTemplate: popup("{zone}", [
+      ["Borough","borough"],["Trips","trip_count"],["Avg Fare","avg_fare","$"],
+      ["Avg Tip","avg_tip","$"],["Revenue","total_revenue","$"],
+      ["Avg Distance","avg_distance","mi"],["PU/DO Ratio","pu_do_ratio"]
+    ])
+  });
+
+  // Dropoffs
+  layers.dropoffs = new GeoJSONLayer({
+    url: DATA + "zone_dropoffs.geojson",
+    title: "Dropoffs", visible: false,
+    renderer: fillBreaks("dropoff_count",
+      ["#0a1f0a","#1b5e20","#388e3c","#66bb6a","#a5d6a7","#c8e6c9"],
+      [[0,1000],[1001,5000],[5001,15000],[15001,40000],[40001,80000],[80001,200000]],
+      ["< 1K","1K-5K","5K-15K","15K-40K","40K-80K","80K+"]
+    ),
+    popupTemplate: popup("{zone}", [["Borough","borough"],["Dropoffs","dropoff_count"],["Avg Fare","avg_fare_do","$"]])
+  });
+
+  // H3 Hexagons
+  layers.h3 = new GeoJSONLayer({
+    url: DATA + "h3_hexagons.geojson",
+    title: "H3 Hexagons", visible: false,
+    renderer: fillBreaks("trip_count",
+      ["#1a0a00","#bf360c","#e64a19","#ff7043","#ffab91","#fbe9e7"],
+      [[0,5000],[5001,15000],[15001,40000],[40001,80000],[80001,150000],[150001,500000]],
+      ["< 5K","5K-15K","15K-40K","40K-80K","80K-150K","150K+"]
+    ),
+    popupTemplate: popup("H3: {h3_index}", [["Trips","trip_count"],["Avg Fare","avg_fare","$"],["Revenue","total_revenue","$"]])
+  });
+
+  // DBSCAN Clusters
+  const clusterColors = ["#ff4444","#44ff44","#4444ff","#ffff44","#ff44ff","#44ffff",
+    "#ff8800","#8800ff","#00ff88","#ff0088","#0088ff","#88ff00"];
+  layers.clusters = new GeoJSONLayer({
+    url: DATA + "dbscan_clusters.geojson",
+    title: "DBSCAN Clusters", visible: false,
+    renderer: {
+      type: "unique-value", field: "cluster",
+      defaultSymbol: { type: "simple-marker", color: "#666", size: 6, outline: { color: "#fff", width: 1 } },
+      defaultLabel: "Noise",
+      uniqueValueInfos: clusterColors.map((c, i) => ({
+        value: i, label: "Cluster " + i,
+        symbol: { type: "simple-marker", color: c, size: 10, outline: { color: "#fff", width: 1.5 } }
+      }))
+    },
+    popupTemplate: popup("{zone}", [["Borough","borough"],["Cluster","cluster"],["Trips","trip_count"],["Revenue","total_revenue","$"]])
+  });
+
+  // OD Flows
+  layers.flows = new GeoJSONLayer({
+    url: DATA + "od_flows.geojson",
+    title: "OD Flows", visible: false,
+    renderer: {
+      type: "class-breaks", field: "flow_count",
+      classBreakInfos: [
+        { minValue: 0, maxValue: 5000, symbol: { type: "simple-line", color: [0,200,255,50], width: 1 }, label: "< 5K" },
+        { minValue: 5001, maxValue: 10000, symbol: { type: "simple-line", color: [0,200,255,110], width: 2 }, label: "5K-10K" },
+        { minValue: 10001, maxValue: 20000, symbol: { type: "simple-line", color: [0,220,255,170], width: 3 }, label: "10K-20K" },
+        { minValue: 20001, maxValue: 50000, symbol: { type: "simple-line", color: [0,240,255,220], width: 4.5 }, label: "20K-50K" },
+        { minValue: 50001, maxValue: 200000, symbol: { type: "simple-line", color: [100,255,255,255], width: 6 }, label: "50K+" },
+      ]
+    },
+    popupTemplate: {
+      title: "{from} → {to}",
+      content: "<b>Trips:</b> {flow_count}<br><b>Avg Fare:</b> ${avg_fare}<br>" +
+               "<b>Avg Duration:</b> {avg_duration} min<br><b>Avg Distance:</b> {avg_distance} mi"
+    }
+  });
+
+  // Revenue
+  layers.revenue = new GeoJSONLayer({
+    url: DATA + "zone_pickups.geojson",
+    title: "Revenue", visible: false,
+    renderer: fillBreaks("total_revenue",
+      ["#1a1500","#f57f17","#fbc02d","#ffee58","#fff176","#fff9c4"],
+      [[0,50000],[50001,200000],[200001,500000],[500001,1500000],[1500001,3000000],[3000001,10000000]],
+      ["< $50K","$50K-200K","$200K-500K","$500K-1.5M","$1.5M-3M","$3M+"]
+    ),
+    popupTemplate: popup("{zone}", [["Borough","borough"],["Revenue","total_revenue","$"],["Trips","trip_count"],["Avg Fare","avg_fare","$"]])
+  });
+
+  // Tips
+  layers.tips = new GeoJSONLayer({
+    url: DATA + "zone_pickups.geojson",
+    title: "Tips", visible: false,
+    renderer: fillBreaks("avg_tip",
+      ["#1a0033","#4a148c","#7b1fa2","#ab47bc","#ce93d8","#e1bee7"],
+      [[0,1],[1.01,2],[2.01,3],[3.01,4],[4.01,5],[5.01,20]],
+      ["< $1","$1-2","$2-3","$3-4","$4-5","$5+"]
+    ),
+    popupTemplate: popup("{zone}", [["Borough","borough"],["Avg Tip","avg_tip","$"],["Avg Fare","avg_fare","$"],["Trips","trip_count"]])
+  });
+
+  // Temporal (no map layer)
+  layers.temporal = null;
+
+  // Add all layers to map
+  Object.values(layers).forEach(l => { if (l) mapEl.map.add(l); });
+
+  // ── Sidebar interaction ──────────────────────────────────────────────
+
+  const btns = document.querySelectorAll(".layer-btn");
+
+  btns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const name = btn.dataset.layer;
+      btns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      // Toggle layers
+      Object.entries(layers).forEach(([k, l]) => {
+        if (l) l.visible = (k === name);
       });
 
-      const toggle = new BasemapToggle({ view: view, nextBasemap: "satellite" });
-      view.ui.add(toggle, "bottom-left");
+      // Update info panel
+      const meta = layerMeta[name];
+      document.getElementById("info-title").textContent = meta.title;
+      document.getElementById("info-desc").textContent = meta.desc;
 
-      // Color ramps
-      const blueRamp = ["#0d1b2a", "#1b2838", "#1d4e89", "#2196f3", "#64b5f6", "#bbdefb"];
-      const greenRamp = ["#0a1f0a", "#1b5e20", "#388e3c", "#66bb6a", "#a5d6a7", "#c8e6c9"];
-      const orangeRamp = ["#1a0a00", "#bf360c", "#e64a19", "#ff7043", "#ffab91", "#fbe9e7"];
-      const purpleRamp = ["#1a0033", "#4a148c", "#7b1fa2", "#ab47bc", "#ce93d8", "#e1bee7"];
-      const yellowRamp = ["#1a1500", "#f57f17", "#fbc02d", "#ffee58", "#fff176", "#fff9c4"];
+      const methodEl = document.getElementById("info-method");
+      methodEl.textContent = meta.method;
+      methodEl.className = "method-tag" + (meta.methodClass ? " " + meta.methodClass : "");
 
-      function makeBreaks(field, colors, breaks, labels) {
-        return new ClassBreaksRenderer({
-          field: field,
-          classBreakInfos: breaks.map((b, i) => ({
-            minValue: b[0], maxValue: b[1],
-            symbol: new SimpleFillSymbol({
-              color: colors[i], outline: { color: "#ffffff22", width: 0.5 }
-            }),
-            label: labels[i]
-          }))
-        });
-      }
+      document.getElementById("info-legend").innerHTML = meta.legend.map(([c, l]) =>
+        `<div class="legend-item"><div class="legend-swatch" style="background:${c}"></div>${l}</div>`
+      ).join("");
 
-      // ── Layer definitions ──────────────────────────────────────────────
-
-      const layers = {};
-
-      // Pickups choropleth
-      layers.pickups = new GeoJSONLayer({
-        url: DATA_BASE + "zone_pickups.geojson",
-        title: "Pickup Volume",
-        visible: true,
-        renderer: makeBreaks("trip_count", blueRamp,
-          [[0,1000],[1001,5000],[5001,15000],[15001,40000],[40001,80000],[80001,200000]],
-          ["< 1K","1K-5K","5K-15K","15K-40K","40K-80K","80K+"]
-        ),
-        popupTemplate: new PopupTemplate({
-          title: "{zone}",
-          content: "<b>Borough:</b> {borough}<br><b>Trips:</b> {trip_count}<br>" +
-                   "<b>Avg Fare:</b> ${avg_fare}<br><b>Avg Tip:</b> ${avg_tip}<br>" +
-                   "<b>Revenue:</b> ${total_revenue}<br><b>Avg Distance:</b> {avg_distance} mi"
-        })
-      });
-
-      // Dropoffs
-      layers.dropoffs = new GeoJSONLayer({
-        url: DATA_BASE + "zone_dropoffs.geojson",
-        title: "Dropoff Volume",
-        visible: false,
-        renderer: makeBreaks("dropoff_count", greenRamp,
-          [[0,1000],[1001,5000],[5001,15000],[15001,40000],[40001,80000],[80001,200000]],
-          ["< 1K","1K-5K","5K-15K","15K-40K","40K-80K","80K+"]
-        ),
-        popupTemplate: new PopupTemplate({
-          title: "{zone}",
-          content: "<b>Borough:</b> {borough}<br><b>Dropoffs:</b> {dropoff_count}<br>" +
-                   "<b>Avg Fare:</b> ${avg_fare_do}"
-        })
-      });
-
-      // KDE heatmap
-      layers.kde = new GeoJSONLayer({
-        url: DATA_BASE + "kde_heatmap.geojson",
-        title: "KDE Heatmap",
-        visible: false,
-        renderer: new ClassBreaksRenderer({
-          field: "density",
-          classBreakInfos: [
-            { minValue: 0.05, maxValue: 0.2, symbol: new SimpleMarkerSymbol({ color: [255,255,0,80], size: 6, outline: null }), label: "Low" },
-            { minValue: 0.2, maxValue: 0.4, symbol: new SimpleMarkerSymbol({ color: [255,200,0,120], size: 7, outline: null }), label: "Medium" },
-            { minValue: 0.4, maxValue: 0.6, symbol: new SimpleMarkerSymbol({ color: [255,140,0,160], size: 8, outline: null }), label: "High" },
-            { minValue: 0.6, maxValue: 0.8, symbol: new SimpleMarkerSymbol({ color: [255,60,0,200], size: 10, outline: null }), label: "Very High" },
-            { minValue: 0.8, maxValue: 1.0, symbol: new SimpleMarkerSymbol({ color: [255,0,0,240], size: 12, outline: null }), label: "Extreme" },
-          ]
-        }),
-        popupTemplate: new PopupTemplate({
-          title: "Density Point",
-          content: "<b>Density:</b> {density}"
-        })
-      });
-
-      // H3 Hexagons
-      layers.h3 = new GeoJSONLayer({
-        url: DATA_BASE + "h3_hexagons.geojson",
-        title: "H3 Hexagons",
-        visible: false,
-        renderer: makeBreaks("trip_count", orangeRamp,
-          [[0,5000],[5001,15000],[15001,40000],[40001,80000],[80001,150000],[150001,500000]],
-          ["< 5K","5K-15K","15K-40K","40K-80K","80K-150K","150K+"]
-        ),
-        popupTemplate: new PopupTemplate({
-          title: "H3 Cell: {h3_index}",
-          content: "<b>Trips:</b> {trip_count}<br><b>Avg Fare:</b> ${avg_fare}<br>" +
-                   "<b>Avg Tip:</b> ${avg_tip}<br><b>Revenue:</b> ${total_revenue}"
-        })
-      });
-
-      // DBSCAN Clusters
-      const clusterColors = [
-        "#ff4444","#44ff44","#4444ff","#ffff44","#ff44ff","#44ffff",
-        "#ff8800","#8800ff","#00ff88","#ff0088","#0088ff","#88ff00"
-      ];
-      layers.clusters = new GeoJSONLayer({
-        url: DATA_BASE + "dbscan_clusters.geojson",
-        title: "DBSCAN Clusters",
-        visible: false,
-        renderer: new UniqueValueRenderer({
-          field: "cluster",
-          defaultSymbol: new SimpleMarkerSymbol({ color: "#666", size: 6, outline: { color: "#fff", width: 1 } }),
-          defaultLabel: "Noise",
-          uniqueValueInfos: Array.from({length: 12}, (_, i) => ({
-            value: i,
-            symbol: new SimpleMarkerSymbol({
-              color: clusterColors[i], size: 10, outline: { color: "#fff", width: 1.5 }
-            }),
-            label: "Cluster " + i
-          }))
-        }),
-        popupTemplate: new PopupTemplate({
-          title: "{zone}",
-          content: "<b>Borough:</b> {borough}<br><b>Cluster:</b> {cluster}<br>" +
-                   "<b>Trips:</b> {trip_count}<br><b>Revenue:</b> ${total_revenue}"
-        })
-      });
-
-      // OD Flows
-      layers.flows = new GeoJSONLayer({
-        url: DATA_BASE + "od_flows.geojson",
-        title: "OD Flows",
-        visible: false,
-        renderer: new ClassBreaksRenderer({
-          field: "flow_count",
-          classBreakInfos: [
-            { minValue: 0, maxValue: 5000, symbol: new SimpleLineSymbol({ color: [0,200,255,60], width: 1 }), label: "< 5K" },
-            { minValue: 5001, maxValue: 10000, symbol: new SimpleLineSymbol({ color: [0,200,255,120], width: 2 }), label: "5K-10K" },
-            { minValue: 10001, maxValue: 20000, symbol: new SimpleLineSymbol({ color: [0,220,255,180], width: 3 }), label: "10K-20K" },
-            { minValue: 20001, maxValue: 50000, symbol: new SimpleLineSymbol({ color: [0,240,255,220], width: 4.5 }), label: "20K-50K" },
-            { minValue: 50001, maxValue: 200000, symbol: new SimpleLineSymbol({ color: [100,255,255,255], width: 6 }), label: "50K+" },
-          ]
-        }),
-        popupTemplate: new PopupTemplate({
-          title: "OD Flow",
-          content: "<b>From Zone:</b> {pu_zone}<br><b>To Zone:</b> {do_zone}<br>" +
-                   "<b>Trip Count:</b> {flow_count}<br><b>Avg Fare:</b> ${avg_fare}<br>" +
-                   "<b>Avg Duration:</b> {duration_min} min"
-        })
-      });
-
-      // Revenue
-      layers.revenue = new GeoJSONLayer({
-        url: DATA_BASE + "zone_pickups.geojson",
-        title: "Revenue",
-        visible: false,
-        renderer: makeBreaks("total_revenue", yellowRamp,
-          [[0,50000],[50001,200000],[200001,500000],[500001,1500000],[1500001,3000000],[3000001,10000000]],
-          ["< $50K","$50K-200K","$200K-500K","$500K-1.5M","$1.5M-3M","$3M+"]
-        ),
-        popupTemplate: new PopupTemplate({
-          title: "{zone}",
-          content: "<b>Borough:</b> {borough}<br><b>Total Revenue:</b> ${total_revenue}<br>" +
-                   "<b>Trips:</b> {trip_count}<br><b>Avg Fare:</b> ${avg_fare}"
-        })
-      });
-
-      // Tips
-      layers.tips = new GeoJSONLayer({
-        url: DATA_BASE + "zone_pickups.geojson",
-        title: "Tips",
-        visible: false,
-        renderer: makeBreaks("avg_tip", purpleRamp,
-          [[0,1],[1.01,2],[2.01,3],[3.01,4],[4.01,5],[5.01,20]],
-          ["< $1","$1-2","$2-3","$3-4","$4-5","$5+"]
-        ),
-        popupTemplate: new PopupTemplate({
-          title: "{zone}",
-          content: "<b>Borough:</b> {borough}<br><b>Avg Tip:</b> ${avg_tip}<br>" +
-                   "<b>Avg Fare:</b> ${avg_fare}<br><b>Trips:</b> {trip_count}"
-        })
-      });
-
-      // Temporal (virtual layer - just shows the panel)
-      layers.temporal = null;
-
-      // Add all layers
-      Object.values(layers).forEach(l => { if (l) map.add(l); });
-
-      // ── Layer info content ────────────────────────────────────────────
-
-      const layerInfo = {
-        pickups: {
-          title: "Pickup Hotspots",
-          desc: "Choropleth map of taxi pickup volume across 263 NYC taxi zones. Computed by aggregating ~2.8M trips by their PULocationID. Midtown Center dominates with 139K+ pickups.",
-          legend: [["#bbdefb","80K+"],["#64b5f6","40K-80K"],["#2196f3","15K-40K"],["#1d4e89","5K-15K"],["#1b2838","1K-5K"],["#0d1b2a","< 1K"]]
-        },
-        dropoffs: {
-          title: "Dropoff Density",
-          desc: "Dropoff distribution mirrors pickups but reveals asymmetries: airports and outer boroughs show higher dropoff-to-pickup ratios, indicating one-way trip patterns.",
-          legend: [["#c8e6c9","80K+"],["#a5d6a7","40K-80K"],["#66bb6a","15K-40K"],["#388e3c","5K-15K"],["#1b5e20","1K-5K"],["#0a1f0a","< 1K"]]
-        },
-        kde: {
-          title: "GPU-Accelerated KDE Heatmap",
-          desc: "Kernel Density Estimation computed on the GPU via CuPy. A Gaussian kernel (bandwidth ~800m) was applied to all pickup locations, producing a continuous density surface over a 200x200 grid.",
-          legend: [["#ff0000","Extreme"],["#ff3c00","Very High"],["#ff8c00","High"],["#ffc800","Medium"],["#ffff00","Low"]]
-        },
-        h3: {
-          title: "H3 Hexagonal Aggregation",
-          desc: "Uber's H3 hierarchical hexagonal grid (resolution 8, ~460m edge). Trip counts aggregated into 239 hexagonal cells, providing uniform-area spatial binning superior to irregular zone boundaries.",
-          legend: [["#fbe9e7","150K+"],["#ffab91","80K-150K"],["#ff7043","40K-80K"],["#e64a19","15K-40K"],["#bf360c","5K-15K"],["#1a0a00","< 5K"]]
-        },
-        clusters: {
-          title: "DBSCAN Spatial Clustering",
-          desc: "Density-Based Spatial Clustering (eps=~500m, min_samples=3) with log-weighted trip counts identified 53 distinct spatial clusters. Noise points (gray) are zones that don't belong to any dense cluster.",
-          legend: [["#ff4444","Cluster 0"],["#44ff44","Cluster 1"],["#4444ff","Cluster 2"],["#666","Noise (-1)"]]
-        },
-        flows: {
-          title: "Origin-Destination Flows",
-          desc: "Top 200 busiest routes between zone pairs. Line thickness encodes trip volume. Reveals the dominant commute corridors and airport connections across NYC.",
-          legend: [["#64ffff","50K+ trips"],["#00f0ff","20K-50K"],["#00dcff","10K-20K"],["#00c8ff80","5K-10K"],["#00c8ff40","< 5K"]]
-        },
-        temporal: {
-          title: "Temporal Trip Patterns",
-          desc: "Heatmap of trip volume by hour (columns) and day of week (rows). Reveals rush hour peaks, weekend nightlife surges, and early-morning quiet periods. Data from 168 unique hour-day combinations.",
-          legend: []
-        },
-        revenue: {
-          title: "Revenue by Zone",
-          desc: "Total fare revenue per zone in January 2024. Manhattan zones dominate with multi-million dollar revenues. JFK airport is a notable outlier in Queens due to flat-rate fares.",
-          legend: [["#fff9c4","$3M+"],["#fff176","$1.5M-3M"],["#ffee58","$500K-1.5M"],["#fbc02d","$200K-500K"],["#f57f17","$50K-200K"],["#1a1500","< $50K"]]
-        },
-        tips: {
-          title: "Tip Analysis",
-          desc: "Average tip amount by pickup zone. Higher tips correlate with longer-distance trips (airport zones). Manhattan's dense short-trip zones show moderate tips (~$2-3).",
-          legend: [["#e1bee7","$5+"],["#ce93d8","$4-5"],["#ab47bc","$3-4"],["#7b1fa2","$2-3"],["#4a148c","$1-2"],["#1a0033","< $1"]]
-        }
-      };
-
-      // ── Sidebar layer switching ───────────────────────────────────────
-
-      const btns = document.querySelectorAll(".layer-btn");
-      btns.forEach(btn => {
-        btn.addEventListener("click", () => {
-          const layerName = btn.dataset.layer;
-          btns.forEach(b => b.classList.remove("active"));
-          btn.classList.add("active");
-
-          // Toggle layers
-          Object.entries(layers).forEach(([name, layer]) => {
-            if (layer) layer.visible = (name === layerName);
-          });
-
-          // Update info panel
-          const info = layerInfo[layerName];
-          document.getElementById("info-title").textContent = info.title;
-          document.getElementById("info-desc").textContent = info.desc;
-
-          const legendEl = document.getElementById("info-legend");
-          legendEl.innerHTML = info.legend.map(([color, label]) =>
-            `<div class="legend-item"><div class="legend-swatch" style="background:${color}"></div>${label}</div>`
-          ).join("");
-
-          // Temporal panel
-          document.getElementById("temporal-panel").style.display =
-            layerName === "temporal" ? "block" : "none";
-        });
-      });
-
-      // ── Temporal heatmap ──────────────────────────────────────────────
-
-      fetch(DATA_BASE + "temporal_patterns.json")
-        .then(r => r.json())
-        .then(data => {
-          const grid = document.getElementById("heatmap-grid");
-          const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-          const maxTrips = Math.max(...data.map(d => d.trip_count));
-
-          // Header row
-          grid.appendChild(Object.assign(document.createElement("div"), {
-            className: "hm-label", textContent: ""
-          }));
-          for (let h = 0; h < 24; h++) {
-            const el = document.createElement("div");
-            el.className = "hm-label";
-            el.textContent = h.toString().padStart(2, "0");
-            grid.appendChild(el);
-          }
-
-          // Data rows
-          for (let d = 0; d < 7; d++) {
-            const label = document.createElement("div");
-            label.className = "hm-label";
-            label.textContent = days[d];
-            grid.appendChild(label);
-
-            for (let h = 0; h < 24; h++) {
-              const entry = data.find(e => e.pickup_dow === d && e.pickup_hour === h);
-              const val = entry ? entry.trip_count : 0;
-              const norm = val / maxTrips;
-              const cell = document.createElement("div");
-              cell.className = "hm-cell";
-              const r = Math.round(norm * 255);
-              const g = Math.round(Math.max(0, norm * 2 - 1) * 200);
-              const b = Math.round(Math.max(0, (1 - norm) * 100));
-              cell.style.background = `rgb(${r},${g},${b})`;
-              cell.title = `${days[d]} ${h}:00 — ${val.toLocaleString()} trips`;
-              grid.appendChild(cell);
-            }
-          }
-        });
-
-      // ── Load summary stats ────────────────────────────────────────────
-
-      fetch(DATA_BASE + "summary.json")
-        .then(r => r.json())
-        .then(data => {
-          const el = document.getElementById("stats-content");
-          const fmt = (n) => typeof n === "number" ? n.toLocaleString() : n;
-          const rows = [
-            ["Total Trips", fmt(data.total_trips)],
-            ["Total Revenue", "$" + fmt(data.total_revenue)],
-            ["Avg Fare", "$" + data.avg_fare],
-            ["Avg Tip", "$" + data.avg_tip],
-            ["Avg Distance", data.avg_distance_miles + " mi"],
-            ["Avg Duration", data.avg_duration_min + " min"],
-            ["Busiest Zone", data.busiest_zone],
-            ["GPU Accelerated", data.gpu_accelerated ? "Yes" : "No"],
-          ];
-          el.innerHTML = rows.map(([k,v]) =>
-            `<div class="stat-row"><span>${k}</span><span class="val">${v}</span></div>`
-          ).join("");
-        });
+      // Moran's I panel
+      document.getElementById("moran-panel").style.display = name === "moran" ? "block" : "none";
+      // Temporal panel
+      document.getElementById("temporal-panel").style.display = name === "temporal" ? "block" : "none";
     });
-  </script>
+  });
+
+  // Trigger first layer description
+  btns[0].click();
+
+  // ── Temporal heatmap ─────────────────────────────────────────────────
+
+  const temporalData = await fetch(DATA + "temporal_patterns.json").then(r => r.json());
+  const grid = document.getElementById("heatmap-grid");
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const maxTrips = Math.max(...temporalData.map(d => d.trip_count));
+  const tooltip = document.getElementById("tooltip");
+
+  // Header
+  grid.appendChild(Object.assign(document.createElement("div"), { className: "hm-label" }));
+  for (let h = 0; h < 24; h++) {
+    const el = document.createElement("div");
+    el.className = "hm-label";
+    el.textContent = h.toString().padStart(2, "0");
+    grid.appendChild(el);
+  }
+
+  for (let d = 0; d < 7; d++) {
+    grid.appendChild(Object.assign(document.createElement("div"), {
+      className: "hm-label", textContent: days[d]
+    }));
+    for (let h = 0; h < 24; h++) {
+      const entry = temporalData.find(e => e.pickup_dow === d && e.pickup_hour === h);
+      const val = entry ? entry.trip_count : 0;
+      const norm = val / maxTrips;
+      const cell = document.createElement("div");
+      cell.className = "hm-cell";
+
+      const r = Math.round(norm * 255);
+      const g = Math.round(Math.max(0, norm * 2 - 1) * 200);
+      cell.style.background = `rgb(${r},${g},${Math.round(Math.max(0, (1-norm)*60))})`;
+
+      cell.addEventListener("mouseenter", e => {
+        tooltip.style.display = "block";
+        tooltip.textContent = `${days[d]} ${h}:00 — ${val.toLocaleString()} trips | $${entry?.avg_fare || 0} avg fare`;
+        tooltip.style.left = e.clientX + 12 + "px";
+        tooltip.style.top = e.clientY - 30 + "px";
+      });
+      cell.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
+      grid.appendChild(cell);
+    }
+  }
+
+  // ── Summary stats ────────────────────────────────────────────────────
+
+  const summary = await fetch(DATA + "summary.json").then(r => r.json());
+  const el = document.getElementById("stats-content");
+  const fmt = n => typeof n === "number" ? n.toLocaleString() : n;
+  el.innerHTML = [
+    ["Total Trips", fmt(summary.total_trips)],
+    ["Revenue", "$" + fmt(summary.total_revenue)],
+    ["Avg Fare", "$" + summary.avg_fare],
+    ["Avg Tip", "$" + summary.avg_tip],
+    ["Avg Distance", summary.avg_distance_miles + " mi"],
+    ["Hot Spots", summary.hot_spots],
+    ["Cold Spots", summary.cold_spots],
+    ["GPU Accelerated", summary.gpu_accelerated ? "Yes" : "No"],
+  ].map(([k, v]) => `<div class="stat-row"><span>${k}</span><span class="val">${v}</span></div>`).join("");
+
+  // ── Moran's I panel ──────────────────────────────────────────────────
+
+  const mi = summary.morans_I;
+  document.getElementById("moran-stats").innerHTML = [
+    ["Moran's I", mi.morans_I],
+    ["Expected I", mi.expected_I],
+    ["Z-Score", mi.z_score],
+    ["P-Value", mi.p_value],
+    ["Pattern", mi.interpretation],
+    ["Method", mi.method],
+  ].map(([k, v]) => `<div class="moran-stat">${k}: <span>${v}</span></div>`).join("");
+</script>
 </body>
 </html>

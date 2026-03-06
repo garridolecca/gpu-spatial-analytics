@@ -7,3 +7,5 @@ h3>=4.0
 requests>=2.31
 cupy-cuda12x>=13.0
 numpy>=1.26
+libpysal>=4.10
+esda>=2.6

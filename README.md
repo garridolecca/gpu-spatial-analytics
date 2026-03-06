@@ -1,9 +1,11 @@
 # GPU-Accelerated Spatial Analytics — NYC Taxi
 
-Interactive spatial analytics platform combining **NVIDIA GPU acceleration** (CuPy) with the **ArcGIS JavaScript SDK** to analyze 2.8 million NYC Yellow Taxi trips from January 2024.
+Interactive spatial analytics platform combining **NVIDIA GPU acceleration** (CuPy) with the **ArcGIS Maps SDK for JavaScript 5.0** to analyze 2.8 million NYC Yellow Taxi trips from January 2024.
+
+Implements ArcGIS Pro-equivalent spatial analysis tools (Hot Spot Analysis, Kernel Density, IDW, Spatial Autocorrelation) accelerated on the GPU via CuPy matrix operations.
 
 ![NVIDIA RTX Accelerated](https://img.shields.io/badge/NVIDIA-RTX%20Accelerated-76b900?style=flat-square&logo=nvidia)
-![ArcGIS JS SDK](https://img.shields.io/badge/ArcGIS%20JS%20SDK-4.30-0079c1?style=flat-square&logo=esri)
+![ArcGIS Maps SDK](https://img.shields.io/badge/ArcGIS%20Maps%20SDK-5.0-0079c1?style=flat-square&logo=esri)
 ![Python](https://img.shields.io/badge/Python-3.10+-3776ab?style=flat-square&logo=python)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
@@ -13,42 +15,55 @@ Interactive spatial analytics platform combining **NVIDIA GPU acceleration** (Cu
 
 ## What This Project Does
 
-This project demonstrates how GPU computing can accelerate geospatial analytics at scale, then visualizes the results through an interactive web application built with Esri's ArcGIS JavaScript SDK.
+GPU-accelerated implementations of standard GIS spatial analysis tools, with results visualized through ArcGIS Maps SDK 5.0 web components.
 
-### Analytics Pipeline (Python + CuPy GPU)
+### GPU-Accelerated Analytics (ArcGIS Equivalents)
 
-| Analysis | Method | GPU-Accelerated |
-|---|---|:---:|
-| **Zone Pickup/Dropoff Aggregation** | Pandas groupby on 2.8M trips across 263 zones | — |
-| **Kernel Density Estimation** | Gaussian KDE on 200x200 grid via CuPy matrix ops | Yes |
-| **H3 Hexagonal Aggregation** | Uber H3 resolution-8 hexagonal spatial binning | — |
-| **DBSCAN Spatial Clustering** | Density-based clustering with log-weighted trip counts | — |
-| **OD Flow Analysis** | Top 200 origin-destination route pairs | — |
-| **Pairwise Distance Matrix** | 263x263 Haversine-approximation via CuPy | Yes |
-| **Temporal Patterns** | 168 hour-of-week combinations | — |
+| Analysis | ArcGIS Pro Equivalent | GPU Method |
+|---|---|---|
+| **Getis-Ord Gi* Hot Spot Analysis** | Hot Spot Analysis (Gi*) | CuPy matrix multiply on spatial weights |
+| **Global Moran's I** | Spatial Autocorrelation | CuPy outer product + weighted sums |
+| **Kernel Density Estimation** | Kernel Density tool | CuPy batched pairwise Gaussian kernel |
+| **IDW Interpolation** | IDW tool | CuPy full distance matrix + weighted average |
+| **Pairwise Distance Matrix** | Generate Near Table | CuPy Haversine-approximation |
+| **Spatial Weights Matrix** | Generate Spatial Weights | CuPy inverse-distance with threshold |
 
-### Web Visualization (ArcGIS JS SDK 4.30)
+### Additional Analytics
 
-Nine interactive map layers with dark-themed UI:
+| Analysis | Method |
+|---|---|
+| Zone Aggregation (Pickup/Dropoff/Revenue/Tip) | Pandas groupby |
+| H3 Hexagonal Spatial Binning | Uber H3 resolution 8 |
+| DBSCAN Spatial Clustering | scikit-learn |
+| Origin-Destination Flow Analysis | Top 200 OD pairs |
+| Temporal Pattern Analysis | 168 hour-of-week bins |
 
-- **Pickup Hotspots** — Choropleth of trip density by taxi zone
-- **Dropoff Density** — Dropoff volume revealing asymmetric trip patterns
-- **KDE Heatmap** — GPU-computed kernel density surface showing continuous hotspots
-- **H3 Hexagons** — Uniform hexagonal grid aggregation (Uber H3)
-- **DBSCAN Clusters** — 53 spatial clusters identified by density-based algorithm
-- **OD Flows** — Top 200 busiest routes with thickness-encoded trip volume
-- **Temporal Patterns** — Interactive day-hour heatmap of trip volume
-- **Revenue by Zone** — Total fare revenue choropleth
-- **Tip Analysis** — Average tip patterns across NYC
+### Web Visualization (ArcGIS Maps SDK 5.0)
+
+Built with the new **web component architecture** (`<arcgis-map>`, `$arcgis.import()`) — 12 interactive map layers:
+
+- **Hot Spot Analysis** — Getis-Ord Gi* classification (99%/95%/90% confidence)
+- **Kernel Density** — GPU-computed continuous density surface
+- **IDW Fare Surface** — Interpolated average fare across NYC
+- **Spatial Autocorrelation** — Moran's I statistics panel
+- **Pickup/Dropoff Volume** — Zone-level choropleth maps
+- **H3 Hexagons** — Uniform hexagonal aggregation
+- **DBSCAN Clusters** — 53 spatial clusters
+- **OD Flows** — Top 200 busiest routes
+- **Temporal Patterns** — Interactive hour-of-week heatmap
+- **Revenue & Tips** — Financial analysis choropleths
 
 ## Key Findings
 
-- **Midtown Center** is the busiest zone with 139,757 pickups
-- **$76.7M** total revenue across all trips in January 2024
-- **53 spatial clusters** identified by DBSCAN, concentrated in Manhattan
-- **Average trip**: 3.23 miles, 15.7 minutes, $18.16 fare, $3.37 tip
-- **Rush hour peaks** clearly visible at 8-9 AM and 5-7 PM on weekdays
-- **Weekend nightlife** surge between 11 PM - 2 AM (Friday/Saturday)
+| Metric | Value |
+|---|---|
+| **Moran's I** | 0.5222 (z=23.38, p<0.0001) — Strong spatial clustering |
+| **Hot Spots** | 59 zones (Midtown, Times Square, Financial District) |
+| **Cold Spots** | 70 zones (outer boroughs, residential areas) |
+| **Busiest Zone** | Midtown Center — 139,757 pickups |
+| **Total Revenue** | $76.7M across all trips |
+| **Average Trip** | 3.23 mi, 15.7 min, $18.16 fare, $3.37 tip |
+| **DBSCAN Clusters** | 53 clusters, concentrated in Manhattan |
 
 ## Data Sources
 
@@ -62,19 +77,21 @@ Nine interactive map layers with dark-themed UI:
 ```
 gpu-spatial-analytics/
 ├── scripts/
-│   ├── download_data.py      # Downloads taxi trip data + zone boundaries
-│   └── run_analytics.py      # GPU-accelerated analytics pipeline
+│   ├── download_data.py          # Downloads taxi data + zone boundaries
+│   └── run_analytics.py          # GPU-accelerated analytics pipeline (10 analyses)
 ├── webapp/
-│   ├── index.html            # ArcGIS JS SDK interactive map application
-│   └── data/                 # Pre-computed GeoJSON analytics output
-│       ├── zone_pickups.geojson
-│       ├── zone_dropoffs.geojson
-│       ├── kde_heatmap.geojson
-│       ├── h3_hexagons.geojson
-│       ├── dbscan_clusters.geojson
-│       ├── od_flows.geojson
-│       ├── temporal_patterns.json
-│       └── summary.json
+│   ├── index.html                # ArcGIS Maps SDK 5.0 web app (12 layers)
+│   └── data/                     # Pre-computed analytics output
+│       ├── hotspot_analysis.geojson   # Getis-Ord Gi* results
+│       ├── kde_heatmap.geojson        # Kernel density surface
+│       ├── idw_fare_surface.geojson   # IDW interpolated fares
+│       ├── zone_pickups.geojson       # Pickup aggregation
+│       ├── zone_dropoffs.geojson      # Dropoff aggregation
+│       ├── h3_hexagons.geojson        # H3 hex aggregation
+│       ├── dbscan_clusters.geojson    # DBSCAN cluster assignments
+│       ├── od_flows.geojson           # Top 200 OD flows
+│       ├── temporal_patterns.json     # Hour-of-week patterns
+│       └── summary.json              # Dataset summary + Moran's I
 ├── requirements.txt
 └── README.md
 ```
@@ -84,51 +101,51 @@ gpu-spatial-analytics/
 ### Prerequisites
 
 - Python 3.10+
-- NVIDIA GPU with CUDA 12.x (for GPU acceleration)
-- ~50 MB disk space for data download
+- NVIDIA GPU with CUDA 12.x (for GPU acceleration; falls back to CPU)
+- ~50 MB disk space for data
 
-### Run the Analytics Pipeline
+### Run the Analytics
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Download NYC Taxi data (~48 MB)
-python scripts/download_data.py
-
-# Run GPU-accelerated analytics
-python scripts/run_analytics.py
+python scripts/download_data.py     # Download data (~48 MB)
+python scripts/run_analytics.py     # Run GPU analytics pipeline
 ```
 
 ### View the Web App
 
-Open `webapp/index.html` in a browser, or serve it locally:
-
 ```bash
-cd webapp
-python -m http.server 8000
+cd webapp && python -m http.server 8000
 # Open http://localhost:8000
 ```
 
 ## Technology Stack
 
-- **NVIDIA CuPy** — GPU-accelerated NumPy-compatible array operations
-- **GeoPandas** — Spatial data processing and GeoJSON export
-- **Uber H3** — Hexagonal hierarchical spatial indexing
-- **scikit-learn** — DBSCAN density-based spatial clustering
-- **SciPy** — Statistical analysis and KDE fallback
-- **ArcGIS JavaScript SDK 4.30** — Interactive web mapping and visualization
-- **Esri Dark Gray Vector Basemap** — Dark-themed cartographic base layer
+| Component | Technology | Purpose |
+|---|---|---|
+| GPU Compute | **NVIDIA CuPy** | Matrix operations, KDE, IDW, Gi*, Moran's I |
+| Spatial Data | **GeoPandas + Shapely** | GeoJSON I/O, spatial operations |
+| Spatial Stats | **PySAL (libpysal + esda)** | Reference implementations for validation |
+| Hex Indexing | **Uber H3** | Hexagonal spatial binning |
+| Clustering | **scikit-learn** | DBSCAN density-based clustering |
+| Web Mapping | **ArcGIS Maps SDK 5.0** | Web components, GeoJSONLayer, renderers |
+| Basemaps | **Esri Dark Gray Vector** | Dark-themed cartographic base |
 
-## GPU Acceleration Details
+## How GPU Acceleration Works
 
-Two computationally intensive operations leverage CuPy for GPU acceleration on the NVIDIA RTX A4000:
+The pipeline uses CuPy to offload computationally intensive spatial operations to the NVIDIA GPU:
 
-1. **Kernel Density Estimation**: Computing a Gaussian kernel over a 200x200 grid with bandwidth ~800m, evaluating distance to thousands of weighted sample points. The GPU parallelizes the pairwise distance computation across 40,000 grid cells.
+1. **Spatial Weights Matrix** — Constructs a 263x263 inverse-distance weight matrix on the GPU with a 5km threshold. Row-standardized for use in spatial statistics.
 
-2. **Pairwise Distance Matrix**: Computing the 263x263 inter-zone distance matrix using Haversine-approximated Euclidean distance on the GPU, enabling rapid spatial proximity analysis.
+2. **Getis-Ord Gi\*** — Computes the full Gi* statistic via GPU matrix multiplication: `W @ x` for the weighted sum, then vectorized z-score computation across all zones simultaneously.
 
-When no GPU is available, the pipeline automatically falls back to NumPy/SciPy CPU implementations.
+3. **Moran's I** — Computes the global spatial autocorrelation index using GPU outer products and elementwise operations on the spatial weights matrix.
+
+4. **Kernel Density** — Evaluates a Gaussian kernel (bandwidth ~800m) across a 200x200 grid. Batched pairwise distance computation between 40,000 grid cells and thousands of weighted sample points.
+
+5. **IDW Interpolation** — Full distance matrix between 10,000 grid points and all zone centroids, with power-2 inverse distance weighting computed in a single GPU operation.
+
+When no GPU is available, the pipeline automatically falls back to NumPy/SciPy implementations.
 
 ## License
 
