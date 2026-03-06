@@ -1,0 +1,23 @@
+# Raw data files (too large for git)
+/data/
+*.parquet
+*.shp
+*.dbf
+*.shx
+*.prj
+*.cpg
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
