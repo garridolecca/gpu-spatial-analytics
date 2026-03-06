@@ -1,0 +1,16 @@
+{
+  "total_trips": 2843674,
+  "total_revenue": 76669984.67,
+  "avg_fare": 18.16,
+  "avg_tip": 3.37,
+  "avg_distance_miles": 3.23,
+  "avg_duration_min": 15.7,
+  "busiest_zone": "Midtown Center",
+  "busiest_zone_trips": 139757,
+  "total_zones": 263,
+  "dbscan_clusters": 53,
+  "h3_hexagons": 239,
+  "gpu_accelerated": true,
+  "data_period": "January 2024",
+  "data_source": "NYC Taxi & Limousine Commission"
+}
